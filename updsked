@@ -1,0 +1,27 @@
+#!/bin/bash
+#
+SCHED_DIR=/home/mikel/Documents/Radio/sw-schedules
+#
+pushd `pwd` 1>/dev/null
+#
+cd $SCHED_DIR
+echo
+echo "updating schedule $1"
+echo
+rm $SCHED_DIR/sked-$1.csv
+wget -N http://eibispace.de/dx/sked-$1.csv
+iconv --from=iso8859-1 --to=utf-8 $SCHED_DIR/sked-$1.csv -o $SCHED_DIR/sked-current.csv
+#
+rm $SCHED_DIR/freq-$1.txt
+wget -N http://eibispace.de/dx/freq-$1.txt
+iconv --from=iso8859-1 --to=utf-8 $SCHED_DIR/freq-$1.txt -o $SCHED_DIR/freq-current.dat
+#
+rm $SCHED_DIR/bc-$1.txt
+wget -N http://eibispace.de/dx/bc-$1.txt
+iconv --from=iso8859-1 --to=utf-8 $SCHED_DIR/bc-$1.txt -o $SCHED_DIR/bc-current.dat
+#
+wget -N http://eibispace.de/dx/README.TXT
+iconv --from=iso8859-1 --to=utf-8 $SCHED_DIR/README.TXT -o $SCHED_DIR/README-current.TXT
+cowsay "All done!" | lolcat
+#
+popd 1>/dev/null

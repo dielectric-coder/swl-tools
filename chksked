@@ -1,0 +1,21 @@
+#!/bin/bash
+#
+SCHED_DIR=/home/mikel/Documents/Radio/sw-schedules
+SAY='/usr/bin/piper --model fr_FR-siwis-medium --output_file tmp.wav'
+#
+clear
+echo "Stations programmées pour $1 kHz"
+echo "Liste des stations en ondes sur $1 kilohertz" | $SAY &> /dev/null
+#play tmp.wav &> /dev/null
+#rm tmp.wav
+#
+pushd `pwd` 1>/dev/null
+#
+cd $SCHED_DIR
+grep -a $1 $SCHED_DIR/sked-current.csv | \
+ awk -F';' '{split($2,duration,"-") ; \
+  dur = duration[2] - duration[1] ; \
+  printf("%s kHz %s UTC Pays: %3s Site: %-6s Station: %-24s Langue: %-3s Cible: %4s %04i\n", \
+   $1, $2, $4, $8, $5, $6, $7, dur)}'
+#
+popd 1>/dev/null
