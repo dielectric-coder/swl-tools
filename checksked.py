@@ -57,6 +57,7 @@ def main():
                     # Calculate duration and check if currently broadcasting
                     duration = 0
                     is_active = False
+                    remaining_time = 0
                     
                     if '-' in time_range:
                         try:
@@ -70,9 +71,34 @@ def main():
                                 duration += 2400
                                 # For broadcasts crossing midnight, check if current time is after start OR before end
                                 is_active = (current_time >= start_time) or (current_time < end_time)
+                                
+                                # Calculate remaining time for midnight-crossing broadcasts
+                                if is_active:
+                                    if current_time >= start_time:
+                                        # We're in the part after midnight crossing
+                                        remaining_time = (2400 - current_time) + end_time
+                                    else:
+                                        # We're in the part before midnight (early morning)
+                                        remaining_time = end_time - current_time
                             else:
                                 # Normal broadcast within same day
                                 is_active = (start_time <= current_time < end_time)
+                                
+                                # Calculate remaining time for normal broadcasts
+                                if is_active:
+                                    # Convert times to total minutes for accurate calculation
+                                    current_hours = current_time // 100
+                                    current_mins = current_time % 100
+                                    end_hours = end_time // 100
+                                    end_mins = end_time % 100
+                                    
+                                    current_total_mins = current_hours * 60 + current_mins
+                                    end_total_mins = end_hours * 60 + end_mins
+                                    
+                                    remaining_mins = end_total_mins - current_total_mins
+                                    
+                                    # Convert back to HHMM format
+                                    remaining_time = (remaining_mins // 60) * 100 + (remaining_mins % 60)
                                 
                         except (ValueError, IndexError):
                             duration = 0
@@ -86,9 +112,13 @@ def main():
                                   f"Cible: {target:>4} "
                                   f"{duration:04d}")
                     
-                    # Highlight if currently active
+                    # Highlight if currently active with remaining time
                     if is_active:
-                        print(f"{GREEN}{output_line} ◄ ON AIR{RESET}")
+                        # Convert remaining time to hours and minutes
+                        hours = remaining_time // 100
+                        minutes = remaining_time % 100
+                        time_str = f"{hours:02d}h{minutes:02d}"
+                        print(f"{GREEN}{output_line} ◄ ON AIR (reste: {time_str}){RESET}")
                     else:
                         print(output_line)
     
