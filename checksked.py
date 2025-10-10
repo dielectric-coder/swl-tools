@@ -7,7 +7,8 @@ from datetime import datetime, timezone
 
 def main():
     # Configuration
-    SCHED_DIR = "/home/mikel/Documents/Radio/sw-schedules"
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    SCHED_DIR = os.path.join(script_dir, "swl-schedules-data")
     
     # Check if frequency argument is provided
     if len(sys.argv) < 2:
@@ -24,8 +25,8 @@ def main():
     os.system('clear')
     
     # Display header
-    print(f"Stations programmées à la fréquence {frequency} kHz")
-    print(f"Pour l'heure UTC actuelle: {current_utc.strftime('%H:%M')}")
+    print(f"Stations en onde à la fréquence {frequency} kHz en ce moment {current_utc.strftime('%H:%M')} UTC")
+    #print(f"Pour l'heure UTC actuelle: {current_utc.strftime('%H:%M')}")
     print()
     
     # Process the CSV file
@@ -33,14 +34,18 @@ def main():
     
     # ANSI color codes for highlighting
     GREEN = '\033[92m'
+    YELLOW = '\033[93m'
     RESET = '\033[0m'
+    
+    # Track if any station is currently on air
+    has_active_station = False
     
     try:
         with open(csv_file, 'r', encoding='latin-1') as f:
             reader = csv.reader(f, delimiter=';')
             for row in reader:
-                # Check if frequency matches (search in first column)
-                if len(row) > 0 and frequency in row[0]:
+                # Check if frequency matches exactly (compare first column)
+                if len(row) > 0 and row[0].strip() == frequency:
                     # Extract fields (adjust indices based on CSV structure)
                     freq = row[0] if len(row) > 0 else ""
                     time_range = row[1] if len(row) > 1 else ""
@@ -114,6 +119,7 @@ def main():
                     
                     # Highlight if currently active with remaining time
                     if is_active:
+                        has_active_station = True
                         # Convert remaining time to hours and minutes
                         hours = remaining_time // 100
                         minutes = remaining_time % 100
@@ -121,6 +127,11 @@ def main():
                         print(f"{GREEN}{output_line} ◄ ON AIR (reste: {time_str}){RESET}")
                     else:
                         print(output_line)
+        
+        # Display message if no stations are currently on air
+        if not has_active_station:
+            print()
+            print(f"{YELLOW}Aucune station n'émet actuellement sur cette fréquence.{RESET}")
     
     except FileNotFoundError:
         print(f"Error: File not found: {csv_file}")
