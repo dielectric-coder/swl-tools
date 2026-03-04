@@ -36,9 +36,13 @@ Downloads the latest schedule data from EiBi for the specified season:
 - Full-screen terminal UI with live UTC clock, frequency search, and schedule table
 - Tokyo Night theme with black background
 - Starship-style powerline input prompts (two-line `╭─░▒▓`/`╰─` segments with nerd font glyphs)
-- Two input fields: Frequency (kHz) and Update (schedule period, e.g. `b25`, `a26`)
-  - Enter in frequency input → search; Enter in period input → download schedules
-  - Period validated with `^[ab]\d{2}$` before calling `updatesked.py`
+- Three input fields: Frequency (kHz), Station (name search), and Update (schedule period)
+  - Enter in frequency input → search by freq, auto-fills Station field with first result
+  - Enter in station input → case-insensitive substring search, auto-fills Frequency field with first result
+  - Editing either search field clears the other (cross-fill guard via `_cross_filling` flag + timer)
+  - Enter in period input → download schedules; period validated with `^[ab]\d{2}$`
+- Results sorted: ON AIR first (by remaining time asc), then NEXT (by time-until asc), unparseable last
+  - `_sort_minutes()` helper computes sort key from time range and current UTC
 - Displays bearing and great-circle distance from user's QTH to each transmitter site
 - Uses `swlconfig.conf` for QTH coordinates (INI format with `[qth]` section: lat, lon, name)
 - Loads `transmitter-sites.json` for site lookups keyed by `(country, site_code)`

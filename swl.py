@@ -259,6 +259,31 @@ def compute_on_air(time_range, current_time):
     return dur_str, True, f"◄ ON AIR {rh:02d}h{rm:02d}"
 
 
+def _sort_minutes(time_range, current_time, is_active):
+    """Return minutes for sorting: remaining if on-air, minutes-until-start if next, 9999 if unparseable."""
+    if "-" not in time_range:
+        return 9999
+    try:
+        start_s, end_s = time_range.split("-")
+        start_time, end_time = int(start_s), int(end_s)
+    except (ValueError, IndexError):
+        return 9999
+    cur_h, cur_m = current_time // 100, current_time % 100
+    cur_total = cur_h * 60 + cur_m
+    if is_active:
+        end_h, end_m = end_time // 100, end_time % 100
+        end_total = end_h * 60 + end_m
+        if end_total <= cur_total:
+            end_total += 24 * 60
+        return end_total - cur_total
+    else:
+        sta_h, sta_m = start_time // 100, start_time % 100
+        sta_total = sta_h * 60 + sta_m
+        if sta_total <= cur_total:
+            sta_total += 24 * 60
+        return sta_total - cur_total
+
+
 def resolve_site_info(row, sites_index):
     """Resolve transmitter site details. Returns dict with name, country, lat, lon or None."""
     country = row["itu"]
@@ -371,6 +396,12 @@ Screen {
     height: 2;
 }
 
+#station-prompt {
+    width: 36;
+    height: 2;
+    margin-left: 1;
+}
+
 #update-prompt {
     width: 22;
     height: 2;
@@ -448,11 +479,18 @@ class SWLApp(App):
         self.target_names = load_target_names()
         self.language_names = load_language_names()
         self.displayed_rows = []
+        self._cross_filling = False
 
     FREQ_LABEL = (
         "[#769ff0 on #394260]╭─[/]"
         "[#a3aed2]░▒▓[/]"
         "[#090c0c on #a3aed2]  Frequency [/]"
+        "[#a3aed2 on black]\ue0b0[/]"
+    )
+    STATION_LABEL = (
+        "[#769ff0 on #394260]╭─[/]"
+        "[#a3aed2]░▒▓[/]"
+        "[#090c0c on #a3aed2]  Station [/]"
         "[#a3aed2 on black]\ue0b0[/]"
     )
     UPDATE_LABEL = (
@@ -470,6 +508,11 @@ class SWLApp(App):
                 with Horizontal():
                     yield Static("[#769ff0 on #394260]╰─\uf10c[/]", classes="prompt-char")
                     yield Input(placeholder="kHz", id="freq-input")
+            with Vertical(id="station-prompt"):
+                yield Static(self.STATION_LABEL)
+                with Horizontal():
+                    yield Static("[#769ff0 on #394260]╰─\uf10c[/]", classes="prompt-char")
+                    yield Input(placeholder="Station name", id="station-input")
             with Vertical(id="update-prompt"):
                 yield Static(self.UPDATE_LABEL)
                 with Horizontal():
@@ -522,16 +565,32 @@ class SWLApp(App):
         """Focus the frequency input field."""
         self.query_one("#freq-input", Input).focus()
 
+    def _reset_cross_filling(self):
+        self._cross_filling = False
+
+    def on_input_changed(self, event):
+        if self._cross_filling:
+            return
+        if event.input.id == "freq-input":
+            self.query_one("#station-input", Input).value = ""
+        elif event.input.id == "station-input":
+            self.query_one("#freq-input", Input).value = ""
+
     def on_input_submitted(self, event):
         if event.input.id == "freq-input":
+            self._do_search()
+        elif event.input.id == "station-input":
             self._do_search()
         elif event.input.id == "period-input":
             self._run_update()
 
     def _do_search(self):
         freq_input = self.query_one("#freq-input", Input)
+        station_input = self.query_one("#station-input", Input)
         freq = freq_input.value.strip()
-        if not freq:
+        station_query = station_input.value.strip().lower()
+
+        if not freq and not station_query:
             return
 
         table = self.query_one("#schedule-table", DataTable)
@@ -542,8 +601,12 @@ class SWLApp(App):
         current_time = int(now.strftime("%H%M"))
         qth_lat, qth_lon = self.qth["lat"], self.qth["lon"]
 
+        results = []
+
         for row in self.schedule:
-            if row["freq"] != freq:
+            if freq and row["freq"] != freq:
+                continue
+            if station_query and station_query not in row["station"].lower():
                 continue
 
             dur_str, is_active, status = compute_on_air(row["time"], current_time)
@@ -562,7 +625,16 @@ class SWLApp(App):
             # Site display
             site_display = row["site_code"] if row["site_code"] else f"/{row['itu']}"
 
-            # Store row data for detail view
+            # Compute sort key: minutes until event (remaining for on-air, until-start for next)
+            sort_minutes = _sort_minutes(row["time"], current_time, is_active)
+
+            results.append((row, dur_str, is_active, status, site_info,
+                            dist_str, brg_str, site_display, sort_minutes))
+
+        # Sort: on-air first (by remaining asc), then next (by until asc), unparseable last
+        results.sort(key=lambda r: (0 if r[2] else (2 if r[8] == 9999 else 1), r[8]))
+
+        for row, dur_str, is_active, status, site_info, dist_str, brg_str, site_display, _ in results:
             row_data = {
                 **row,
                 "dur_str": dur_str,
@@ -587,6 +659,16 @@ class SWLApp(App):
                 cells = [Text(str(c), style="#aaaaaa") for c in cells]
 
             table.add_row(*cells, key=str(row_index))
+
+        # Auto-fill the other search field with first result
+        if results:
+            first = results[0][0]
+            self._cross_filling = True
+            if freq and not station_query:
+                station_input.value = first["station"]
+            elif station_query and not freq:
+                freq_input.value = first["freq"]
+            self.set_timer(0.1, self._reset_cross_filling)
 
         # Move focus to table so arrow keys navigate rows immediately
         if table.row_count > 0:
