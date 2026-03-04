@@ -165,4 +165,3 @@ Michel Lachaine, mike@mikelachaine.ca
 ## Acknowledgments
 
 - EiBi for providing comprehensive shortwave broadcast schedules
-- The shortwave listening 
