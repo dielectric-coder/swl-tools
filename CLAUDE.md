@@ -36,8 +36,8 @@ Downloads the latest schedule data from EiBi for the specified season:
 - Reads `swl-schedules-data/sked-current.csv` (semicolon-delimited CSV)
 - Parses broadcast time ranges and handles midnight-crossing broadcasts
 - Compares current UTC time against schedule entries
-- Displays matching broadcasts with ANSI color highlighting for active stations
-- Calculates and displays remaining airtime for active broadcasts
+- Uses `rich` library for output: `Panel` header with frequency/UTC time, `Table` for schedule rows
+- Active broadcasts highlighted in bold green with `◄ ON AIR` indicator and remaining time
 - Uses latin-1 encoding to read CSV files
 
 **updatesked.py** - Schedule update tool
@@ -98,15 +98,17 @@ Both scripts work exclusively in UTC:
 
 ### Display Formatting
 
-Output uses ANSI color codes:
-- GREEN (`\033[92m`) - Currently active broadcasts with "◄ ON AIR" indicator
-- YELLOW (`\033[93m`) - Warning messages
-- RESET (`\033[0m`) - Color reset
+Output uses the `rich` library:
+- `Panel` header showing frequency and current UTC time
+- `Table` with columns: kHz, UTC, Pays, Site, Station, Lng, Cible, Dur., Status
+- Active broadcasts styled `bold green` with "◄ ON AIR" indicator
+- Warning messages styled `yellow`
+- Console width set to minimum 110 columns for proper table rendering
 
 ## Dependencies
 
-Python 3.x with standard library only:
-- `sys`, `os`, `csv`, `datetime` (checksked.py)
+Python 3.x:
+- `sys`, `os`, `csv`, `datetime`, `rich` (checksked.py)
 - `sys`, `os`, `subprocess`, `urllib.request`, `shutil`, `re`, `json` (updatesked.py)
 
 Optional external commands:

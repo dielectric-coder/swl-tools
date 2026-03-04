@@ -144,6 +144,7 @@ Common target area codes:
 
 - Python 3.x
 - Standard library modules: `sys`, `os`, `csv`, `datetime`, `json`, `re`
+- External: `rich` (install via `pip install rich` or `pacman -S python-rich`)
 
 ## Contributing
 
