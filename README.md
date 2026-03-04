@@ -6,10 +6,39 @@ A collection of tools for shortwave listeners (SWL) to check broadcast schedules
 
 This project provides utilities to query and display shortwave radio broadcast schedules from the EiBi (Eibi) database. The main tool allows you to check which stations are currently broadcasting on a specific frequency.
 
+## Screenshots
+
+### Interactive TUI Dashboard
+
+<p align="center">
+  <img src="screenshots/swl-dashboard.svg" alt="SWL Dashboard — empty state" width="100%">
+</p>
+
+### Frequency Search Results
+
+Search results for 6070 kHz with ON AIR highlighting, distance, and bearing from QTH:
+
+<p align="center">
+  <img src="screenshots/swl-search.svg" alt="SWL Dashboard — frequency search results" width="100%">
+</p>
+
+### Station Detail Modal
+
+<p align="center">
+  <img src="screenshots/swl-detail.svg" alt="SWL Dashboard — station detail modal" width="100%">
+</p>
+
+### CLI Schedule Check (`checksked`)
+
+<p align="center">
+  <img src="screenshots/checksked.svg" alt="checksked CLI output" width="100%">
+</p>
+
 ## Features
 
 - **Interactive TUI Dashboard**: Full-screen terminal UI with live UTC clock, frequency search, bearing and distance display
 - **Real-time Schedule Checking**: Query current broadcasts on any frequency
+- **azMap Integration**: Press `m` to show transmitter location on an azimuthal map; reuses a running azMap window via IPC
 - **Bearing & Distance**: Great-circle distance and compass bearing from your QTH to each transmitter site
 - **UTC Time Display**: All times shown in UTC for international coordination
 - **Active Station Highlighting**: Currently broadcasting stations are highlighted in bold green
@@ -45,6 +74,27 @@ cd packaging/archlinux
 makepkg -si
 ```
 
+This installs the entry points (`swl`, `checksked`, `updatesked`) and a desktop entry for application menu integration.
+
+### Standalone binary
+
+Build a self-contained executable (~16MB) that bundles Python and all dependencies — no Python installation required on the target machine:
+
+```bash
+python -m venv .venv && .venv/bin/pip install -e . pyinstaller
+.venv/bin/pyinstaller --onefile --name swl \
+  --add-data "src/eibi_swl/countrycode.dat:eibi_swl" \
+  --add-data "src/eibi_swl/targetcode:eibi_swl" \
+  --add-data "src/eibi_swl/transmittersite:eibi_swl" \
+  --add-data "src/eibi_swl/swlconfig.conf.sample:eibi_swl" \
+  --add-data "src/eibi_swl/swl-schedules-data:eibi_swl/swl-schedules-data" \
+  --hidden-import=textual --hidden-import=rich \
+  --collect-all=textual --collect-all=rich \
+  --paths=src src/eibi_swl/swl.py
+```
+
+The binary is output to `dist/swl`.
+
 ## Configuration
 
 Create or edit `swlconfig.conf` in the project root with your QTH (station location):
@@ -75,6 +125,7 @@ Launches a full-screen terminal dashboard with:
 - ON AIR highlighting (bold green) for active broadcasts
 - NEXT time display (light grey) for upcoming broadcasts
 - Station detail modal on row select (Enter)
+- Press `m` to open the selected station in [azMap](https://github.com/mikewam/azMap) (azimuthal map)
 - Press `F5` to update schedules, `q` or `Escape` to quit
 
 ### Check Stations on a Frequency

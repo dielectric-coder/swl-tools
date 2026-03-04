@@ -281,6 +281,11 @@ def resolve_site_info(row, sites_index):
         s = sites_index[key_default]
         return {"name": s.get("name", ""), "country": country, "lat": s["lat"], "lon": s["lon"]}
 
+    # Last resort: pick the first site for this country
+    for (c, _sc), s in sites_index.items():
+        if c == country:
+            return {"name": s.get("name", ""), "country": country, "lat": s["lat"], "lon": s["lon"]}
+
     return None
 
 
@@ -436,6 +441,7 @@ class SWLApp(App):
         ("q", "quit", "Quit"),
         ("escape", "quit", "Quit"),
         ("f5", "update_schedules", "Update Sked"),
+        ("m", "show_map", "Map"),
         ("slash", "focus_search", "Search"),
         ("tab", "focus_next", "Next"),
         ("shift+tab", "focus_previous", "Prev"),
@@ -718,6 +724,52 @@ class SWLApp(App):
         lines.append(field("Target", f"{target_name} ({rd['target']})" if rd['target'] else "—"))
 
         self.push_screen(DetailScreen("\n".join(lines)))
+
+    FIFO_PATH = "/tmp/azmap-target.fifo"
+
+    def action_show_map(self):
+        """Send target to running azMap via FIFO, or launch a new instance."""
+        table = self.query_one(DataTable)
+        if not table.row_count or table.cursor_row is None:
+            self.bell()
+            return
+        try:
+            row_key = table.coordinate_to_cell_key(
+                (table.cursor_row, 0)).row_key
+            idx = int(str(row_key.value))
+        except (ValueError, TypeError):
+            self.bell()
+            return
+        if idx < 0 or idx >= len(self.displayed_rows):
+            self.bell()
+            return
+        rd = self.displayed_rows[idx]
+        si = rd.get("site_info")
+        if not si or si.get("lat") is None or si.get("lon") is None:
+            self.bell()
+            return
+        target_name = f"{rd['station']} ({rd['freq']} kHz)"
+        fifo_line = f"{si['lat']},{si['lon']},{target_name}\n"
+
+        # Try sending to existing azMap via FIFO
+        try:
+            fd = os.open(self.FIFO_PATH, os.O_WRONLY | os.O_NONBLOCK)
+            try:
+                os.write(fd, fifo_line.encode("utf-8"))
+                return  # azMap received the update
+            finally:
+                os.close(fd)
+        except OSError:
+            pass  # FIFO doesn't exist or no reader — launch new instance
+
+        try:
+            subprocess.Popen(
+                ["azmap", str(si["lat"]), str(si["lon"]), "-t", target_name],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except FileNotFoundError:
+            self.bell()
 
     @work(thread=True)
     def _run_update(self):

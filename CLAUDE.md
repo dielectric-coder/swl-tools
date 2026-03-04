@@ -70,6 +70,52 @@ src/eibi_swl/          # Python package installed to site-packages
 - `pip install -e .` — editable install for development
 - `python -m build` — build sdist + wheel
 - `cd packaging/archlinux && makepkg -si` — Arch Linux package
+- `.venv/bin/pyinstaller --onefile --name swl ...` — standalone binary (see below)
+
+### Standalone binary (PyInstaller)
+
+Produces a single self-contained ELF executable (~16MB) that bundles Python, textual, rich, and all data files. No Python installation required on the target machine.
+
+**Prerequisites**: PyInstaller must be installed in the project venv (`.venv/bin/pip install pyinstaller`).
+
+**Build command**:
+```bash
+.venv/bin/pyinstaller --onefile --name swl \
+  --add-data "src/eibi_swl/countrycode.dat:eibi_swl" \
+  --add-data "src/eibi_swl/targetcode:eibi_swl" \
+  --add-data "src/eibi_swl/transmittersite:eibi_swl" \
+  --add-data "src/eibi_swl/swlconfig.conf.sample:eibi_swl" \
+  --add-data "src/eibi_swl/swl-schedules-data:eibi_swl/swl-schedules-data" \
+  --hidden-import=textual --hidden-import=rich \
+  --collect-all=textual --collect-all=rich \
+  --paths=src src/eibi_swl/swl.py
+```
+
+**Output**: `dist/swl`
+
+**Important**: PyInstaller must run from the project venv that has `textual` and `rich` installed, not from a system-wide or pipx install, otherwise the dependencies won't be bundled.
+
+### Arch Linux package
+
+The PKGBUILD at `packaging/archlinux/PKGBUILD` builds a wheel and installs it system-wide via `python-installer`. It also installs a `.desktop` file for application menu integration.
+
+```bash
+cd packaging/archlinux && makepkg -si
+```
+
+Installs:
+- Entry points (`swl`, `checksked`, `updatesked`) to `/usr/bin/`
+- Desktop entry to `/usr/share/applications/swl.desktop`
+
+Runtime dependencies: `python`, `python-rich`, `python-textual`
+
+### Desktop entry
+
+`packaging/swl.desktop` provides application menu integration. It launches `swl` in a terminal emulator. Installed automatically by the Arch package, or manually:
+
+```bash
+cp packaging/swl.desktop ~/.local/share/applications/
+```
 
 ## Architecture
 
@@ -94,7 +140,8 @@ src/eibi_swl/          # Python package installed to site-packages
 - NEXT indicator in light grey showing time until broadcast starts for inactive stations
 - Station detail modal (Enter on row) with round blue border
 - DataTable with sortable columns, zebra stripes, row cursor
-- Key bindings: Enter to search/update, F5 to update schedules, q/Escape to quit
+- Key bindings: Enter to search/update, F5 to update schedules, m to show azMap, q/Escape to quit
+- **azMap IPC** (`m` key): sends target coordinates to a running azMap instance via a named pipe (FIFO) at `/tmp/azmap-target.fifo`. If no azMap is running (FIFO open fails with ENXIO), launches a new instance via `subprocess.Popen`. Wire format: `lat,lon,name\n` (e.g. `12.6833,-8.0333,CRI-Bamako (5995 kHz)\n`). This allows updating the azMap target in-place without spawning a new window each time.
 
 **src/eibi_swl/checksked.py** - Query tool for checking active broadcasts
 - Reads `swl-schedules-data/sked-current.csv` (semicolon-delimited CSV)

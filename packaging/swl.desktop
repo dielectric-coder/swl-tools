@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=SWL Dashboard
+Comment=Shortwave listener broadcast schedule dashboard
+Exec=swl
+Terminal=true
+Type=Application
+Icon=utilities-terminal
+Categories=HamRadio;Network;

@@ -4,4 +4,5 @@ swlconfig.conf
 dist/
 build/
 *.egg
+*.spec
 .eggs/
