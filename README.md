@@ -14,6 +14,7 @@ This project provides utilities to query and display shortwave radio broadcast s
 - **Remaining Time Display**: Shows how much time is left for active broadcasts
 - **Midnight Crossing Support**: Correctly handles broadcasts that span across midnight
 - **Multi-language Support**: Displays station language and target area information
+- **Transmitter Site Extraction**: Extracts transmitter sites with GPS coordinates to JSON
 
 ## Installation
 
@@ -57,6 +58,31 @@ Stations en onde à la fréquence 1170 kHz en ce moment -> 14:46 UTC
 ...
 ```
 
+### Update Schedule Data
+
+```bash
+./updatesked.py <schedule_period>
+```
+
+**Example:**
+```bash
+./updatesked.py b25
+```
+
+Downloads the latest EiBi schedule data for the specified season (`a` = summer, `b` = winter, followed by 2-digit year). Also extracts transmitter site locations and coordinates into `transmitter-sites.json`:
+
+```json
+[
+  {
+    "country": "AFG",
+    "site_code": "k",
+    "name": "Kabul / Pol-e-Charkhi",
+    "lat": 34.5333,
+    "lon": 69.3333
+  }
+]
+```
+
 ## Data Format
 
 The tool reads schedule data from CSV files in the `swl-schedules-data/` directory. The CSV format includes:
@@ -75,6 +101,7 @@ The tool reads schedule data from CSV files in the `swl-schedules-data/` directo
 ## Schedule Files
 
 - `sked-current.csv`: Current season's broadcast schedule
+- `transmitter-sites.json`: Transmitter sites with decimal lat/lon coordinates
 - `sked-a25.csv`: A25 season schedule (example)
 
 ## Output Fields
@@ -116,7 +143,7 @@ Common target area codes:
 ## Requirements
 
 - Python 3.x
-- Standard library modules: `sys`, `os`, `csv`, `datetime`
+- Standard library modules: `sys`, `os`, `csv`, `datetime`, `json`, `re`
 
 ## Contributing
 

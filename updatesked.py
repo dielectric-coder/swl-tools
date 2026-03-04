@@ -6,6 +6,135 @@ import subprocess
 import urllib.request
 import shutil
 import re
+import json
+
+def parse_dms_coord(coord_str):
+    """Parse a single coordinate component like '34N32' or '26S07\\'40\"' to decimal degrees."""
+    match = re.match(r"(\d+)([NSEW])(\d+)(?:'(\d+)(?:\")?)?", coord_str)
+    if not match:
+        return None
+    degrees = int(match.group(1))
+    direction = match.group(2)
+    minutes = int(match.group(3))
+    seconds = int(match.group(4)) if match.group(4) else 0
+    decimal = degrees + minutes / 60.0 + seconds / 3600.0
+    if direction in ('S', 'W'):
+        decimal = -decimal
+    return round(decimal, 4)
+
+
+# Regex to find coordinate pairs at end of line
+# Matches patterns like: 34N32-69E20  or  26S07'40"-28E12'20"
+COORD_PAIR_RE = re.compile(
+    r'(\d+[NS]\d+(?:\'\d+\"?)?)\s*-\s*(\d+[EW]\d+(?:\'\d+\"?)?)'
+)
+
+
+def extract_transmitter_sites(readme_path, output_path):
+    """Extract transmitter sites and coordinates from EiBi README and write JSON."""
+    with open(readme_path, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+
+    # Find section IV start
+    section_start = None
+    for i, line in enumerate(lines):
+        if 'IV)' in line and 'ransmitter' in line:
+            section_start = i
+            break
+
+    if section_start is None:
+        print("Warning: Could not find transmitter site section in README")
+        return
+
+    sites = []
+    current_country = None
+
+    # Skip preamble lines until first country entry
+    for line in lines[section_start:]:
+        stripped = line.rstrip()
+
+        # Country header line: "   XXX: ..."
+        country_match = re.match(r'^   ([A-Z][A-Za-z0-9 ]{1,4}):\s*(.*)', stripped)
+        if country_match:
+            current_country = country_match.group(1).strip()
+            rest = country_match.group(2).strip()
+            if rest:
+                _parse_site_entry(sites, current_country, rest)
+            continue
+
+        # Continuation line: "        code-Name coords"
+        cont_match = re.match(r'^        \s*(.*)', stripped)
+        if cont_match and current_country:
+            rest = cont_match.group(1).strip()
+            if rest:
+                _parse_site_entry(sites, current_country, rest)
+
+    # Write JSON
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(sites, f, indent=2, ensure_ascii=False)
+
+    print(f"Extracted {len(sites)} transmitter sites to {os.path.basename(output_path)}")
+
+
+def _parse_site_entry(sites, country, text):
+    """Parse a single site entry and append to sites list."""
+    # Strip trailing "except:" marker
+    text = re.sub(r'\s+except:\s*$', '', text)
+
+    # Skip entries with no coordinates
+    if not COORD_PAIR_RE.search(text):
+        return
+
+    # Try to extract site code prefix (e.g., "k-Kabul...", "ct-Cape Town...")
+    site_code_match = re.match(r'^([a-zA-Z0-9]+)-(.*)$', text)
+    if site_code_match:
+        site_code = site_code_match.group(1)
+        rest = site_code_match.group(2)
+    else:
+        site_code = ""
+        rest = text
+
+    # Find all coordinate pairs
+    coord_matches = list(COORD_PAIR_RE.finditer(rest))
+    if not coord_matches:
+        return
+
+    # For multi-coordinate lines (e.g., "Aero sites: A coords and B coords")
+    if len(coord_matches) > 1 and ' and ' in rest:
+        _parse_multi_site(sites, country, site_code, rest, coord_matches)
+    else:
+        name_part = rest[:coord_matches[0].start()].strip()
+        lat = parse_dms_coord(coord_matches[0].group(1))
+        lon = parse_dms_coord(coord_matches[0].group(2))
+        if lat is not None and lon is not None:
+            sites.append({
+                "country": country,
+                "site_code": site_code,
+                "name": name_part,
+                "lat": lat,
+                "lon": lon
+            })
+
+
+def _parse_multi_site(sites, country, site_code, rest, coord_matches):
+    """Parse lines with multiple sites separated by 'and'."""
+    # Split on ' and ' and pair with coordinates
+    parts = re.split(r'\s+and\s+', rest)
+    for part in parts:
+        cm = COORD_PAIR_RE.search(part)
+        if cm:
+            name_part = part[:cm.start()].strip()
+            lat = parse_dms_coord(cm.group(1))
+            lon = parse_dms_coord(cm.group(2))
+            if lat is not None and lon is not None:
+                sites.append({
+                    "country": country,
+                    "site_code": site_code,
+                    "name": name_part,
+                    "lat": lat,
+                    "lon": lon
+                })
+
 
 def main():
     # Get the directory where this script is located
@@ -92,7 +221,15 @@ def main():
             
     except Exception as e:
         print(f"Error processing {readme_source}: {e}")
-    
+
+    # Extract transmitter sites to JSON
+    readme_current = os.path.join(SCHED_DIR, readme_target)
+    sites_json = os.path.join(SCHED_DIR, "transmitter-sites.json")
+    try:
+        extract_transmitter_sites(readme_current, sites_json)
+    except Exception as e:
+        print(f"Error extracting transmitter sites: {e}")
+
     # Display completion message
     try:
         # Try to use cowsay and lolcat if available
