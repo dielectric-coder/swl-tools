@@ -60,7 +60,7 @@ def main():
     table.add_column("Status", no_wrap=True)
 
     try:
-        with open(csv_file, 'r', encoding='latin-1') as f:
+        with open(csv_file, 'r', encoding='utf-8') as f:
             reader = csv.reader(f, delimiter=';')
             for row in reader:
                 # Check if frequency matches exactly (compare first column)

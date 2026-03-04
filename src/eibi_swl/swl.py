@@ -194,7 +194,7 @@ def load_schedule():
     """Load the schedule CSV into a list of row dicts."""
     rows = []
     try:
-        with open(SKED_CSV, "r", encoding="latin-1") as f:
+        with open(SKED_CSV, "r", encoding="utf-8") as f:
             reader = csv.reader(f, delimiter=";")
             next(reader, None)  # skip header
             for row in reader:
