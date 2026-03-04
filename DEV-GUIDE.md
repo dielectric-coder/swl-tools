@@ -7,7 +7,8 @@ swl-tools/
 ├── swl.py                  # Interactive TUI dashboard (Textual)
 ├── checksked.py            # CLI frequency query tool (Rich)
 ├── updatesked.py           # Schedule downloader & converter
-├── swlconfig.conf          # User QTH configuration (not tracked)
+├── swlconfig.conf          # User QTH configuration (git-ignored)
+├── .gitignore              # Ignores __pycache__/, swlconfig.conf
 ├── countrycode.dat         # ITU country codes (latin-1)
 ├── targetcode              # Target area code definitions
 ├── transmittersite         # Transmitter site locations (text)
@@ -33,7 +34,7 @@ The main application built with [Textual](https://textual.textualize.io/).
 **Theme & Styling:**
 - Tokyo Night theme (`theme = "tokyo-night"`) with black backgrounds
 - Starship-style powerline input prompts using Nerd Font glyphs
-- Color palette from user's Starship config: `#769ff0`, `#a3aed2`, `#394260`, `#1d2230`
+- Color palette from user's Starship config: `#769ff0`, `#a3aed2`, `#394260`; all backgrounds black
 - ON AIR rows: bold green; inactive rows: `#aaaaaa` (light grey)
 - Detail modal: round `#769ff0` border, `#a9b1d6` text
 
@@ -50,7 +51,7 @@ The main application built with [Textual](https://textual.textualize.io/).
 - `load_language_names()` — Language codes parsed from `README-current.TXT` Section I
 
 **Core Functions:**
-- `compute_on_air(time_range, current_time)` — Returns `(duration, is_active, status_str)`. Active → `◄ ON AIR HHhMM`, inactive → `→ NEXT HHhMM`
+- `compute_on_air(time_range, current_time)` — Returns `(duration, is_active, status_str)`. Active → `◄ ON AIR HHhMM`, inactive → `→ NEXT HHhMM`, unparseable → `"—"`
 - `resolve_site_info(row, sites_index)` — Resolves transmitter site by `(country, site_code)` with fallback to default site
 - `haversine(lat1, lon1, lat2, lon2)` — Great-circle distance in km
 - `bearing(lat1, lon1, lat2, lon2)` — Initial bearing in degrees
@@ -59,9 +60,10 @@ The main application built with [Textual](https://textual.textualize.io/).
 **Event Flow:**
 1. `on_input_submitted` — Dispatches to `_do_search()` or `_run_update()` based on input ID
 2. `_do_search()` — Filters schedule by frequency, computes ON AIR/NEXT status, populates DataTable
-3. `_run_update()` — Validates period (`^[ab]\d{2}$`), runs `updatesked.py` as subprocess in worker thread, reloads data on success
-4. `on_data_table_row_selected` — Opens `DetailScreen` with resolved station details
-5. `_tick()` — Updates UTC clock every second
+3. `_run_update()` — Validates period (`^[ab]\d{2}$`), runs `updatesked.py` as subprocess in worker thread
+4. `_apply_reload(sites, schedule)` — Thread-safe callback to update data on main thread after successful download
+5. `on_data_table_row_selected` — Opens `DetailScreen` with resolved station details
+6. `_tick()` — Updates UTC clock every second
 
 ### checksked.py — CLI Query Tool
 

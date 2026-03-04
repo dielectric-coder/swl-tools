@@ -115,7 +115,16 @@ Both scripts work exclusively in UTC:
 
 ### Display Formatting
 
-Output uses the `rich` library:
+**swl.py TUI:**
+- Tokyo Night theme with black backgrounds throughout
+- Starship-style powerline prompts using Nerd Font glyphs (`\ue0b0`, `\uf10c`)
+- Input prompts centered horizontally with separator line above table
+- Active rows: bold green `◄ ON AIR HHhMM`; inactive rows: `#aaaaaa` grey `→ NEXT HHhMM`
+- Unparseable time ranges display `"—"` in status column
+- Detail modal: round `#769ff0` border, `#a9b1d6` text on black
+- Data reload after update is thread-safe via `_apply_reload()` callback
+
+**checksked.py CLI:**
 - `Panel` header showing frequency and current UTC time
 - `Table` with columns: kHz, UTC, Pays, Site, Station, Lng, Cible, Dur., Status
 - Active broadcasts styled `bold green` with "◄ ON AIR" indicator

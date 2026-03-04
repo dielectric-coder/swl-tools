@@ -33,9 +33,9 @@ cd swl-tools
 python3 --version
 ```
 
-3. Make the script executable:
+3. Make the scripts executable:
 ```bash
-chmod +x checksked.py
+chmod +x checksked.py swl.py updatesked.py
 ```
 
 ## Configuration
@@ -146,8 +146,8 @@ The tool reads schedule data from CSV files in the `swl-schedules-data/` directo
 - **Langue**: Language code (e.g., K=Korean, J=Japanese, E=English)
 - **Cible**: Target area (e.g., FE=Far East, SAf=South Africa)
 - **Duration**: Broadcast duration in HHMM format
-- **◄ ON AIR**: Indicator for currently active broadcasts
-- **reste**: Remaining time for active broadcasts
+- **◄ ON AIR HHhMM**: Indicator for currently active broadcasts with remaining time (bold green)
+- **→ NEXT HHhMM**: Time until next broadcast for inactive stations (light grey)
 
 ## Language Codes
 
