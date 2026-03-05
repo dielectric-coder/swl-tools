@@ -10,6 +10,7 @@ from rich.panel import Panel
 from rich import box
 
 from eibi_swl._paths import resolve_data_dir
+from eibi_swl._schedule import compute_on_air
 
 def main():
     # Configuration
@@ -23,7 +24,7 @@ def main():
 
     # Check if frequency argument is provided
     if len(sys.argv) < 2:
-        console.print("Usage: checksked.py <frequency_in_kHz>", style="red")
+        console.print("Usage: checksked <frequency_in_kHz>", style="red")
         sys.exit(1)
 
     frequency = sys.argv[1]
@@ -62,10 +63,11 @@ def main():
     try:
         with open(csv_file, 'r', encoding='utf-8') as f:
             reader = csv.reader(f, delimiter=';')
+            next(reader, None)  # skip header
             for row in reader:
                 # Check if frequency matches exactly (compare first column)
                 if len(row) > 0 and row[0].strip() == frequency:
-                    # Extract fields (adjust indices based on CSV structure)
+                    # Extract fields
                     freq = row[0] if len(row) > 0 else ""
                     time_range = row[1] if len(row) > 1 else ""
                     country = row[3] if len(row) > 3 else ""
@@ -78,61 +80,10 @@ def main():
                     if not site or site.strip() == "":
                         site = f"/{country}"
 
-                    # Calculate duration and check if currently broadcasting
-                    duration = 0
-                    is_active = False
-                    remaining_time = 0
+                    dur_str, is_active, status, _ = compute_on_air(time_range, current_time)
 
-                    if '-' in time_range:
-                        try:
-                            start, end = time_range.split('-')
-                            start_time = int(start)
-                            end_time = int(end)
-                            duration = end_time - start_time
-
-                            # Handle broadcasts that cross midnight
-                            if duration < 0:
-                                duration += 2400
-                                # For broadcasts crossing midnight, check if current time is after start OR before end
-                                is_active = (current_time >= start_time) or (current_time < end_time)
-
-                                # Calculate remaining time for midnight-crossing broadcasts
-                                if is_active:
-                                    if current_time >= start_time:
-                                        # We're in the part after midnight crossing
-                                        remaining_time = (2400 - current_time) + end_time
-                                    else:
-                                        # We're in the part before midnight (early morning)
-                                        remaining_time = end_time - current_time
-                            else:
-                                # Normal broadcast within same day
-                                is_active = (start_time <= current_time < end_time)
-
-                                # Calculate remaining time for normal broadcasts
-                                if is_active:
-                                    # Convert times to total minutes for accurate calculation
-                                    current_hours = current_time // 100
-                                    current_mins = current_time % 100
-                                    end_hours = end_time // 100
-                                    end_mins = end_time % 100
-
-                                    current_total_mins = current_hours * 60 + current_mins
-                                    end_total_mins = end_hours * 60 + end_mins
-
-                                    remaining_mins = end_total_mins - current_total_mins
-
-                                    # Convert back to HHMM format
-                                    remaining_time = (remaining_mins // 60) * 100 + (remaining_mins % 60)
-
-                        except (ValueError, IndexError):
-                            duration = 0
-
-                    # Build status and row style
                     if is_active:
                         has_active_station = True
-                        hours = remaining_time // 100
-                        minutes = remaining_time % 100
-                        status = f"◄ ON AIR {hours:02d}h{minutes:02d}"
                         row_style = "bold green"
                     else:
                         status = ""
@@ -140,7 +91,7 @@ def main():
 
                     table.add_row(
                         freq, time_range, country, site, station,
-                        language, target, f"{duration:04d}", status,
+                        language, target, dur_str, status,
                         style=row_style
                     )
 

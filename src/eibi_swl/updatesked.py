@@ -4,7 +4,6 @@ import sys
 import os
 import subprocess
 import urllib.request
-import shutil
 import re
 import json
 
@@ -141,14 +140,14 @@ def _parse_multi_site(sites, country, site_code, rest, coord_matches):
 def main():
     # Configuration
     SCHED_DIR = resolve_data_dir()
-    BASE_URL = "http://eibispace.de/dx"
+    BASE_URL = "https://eibispace.de/dx"
     
     # Create schedule directory if it doesn't exist
     os.makedirs(SCHED_DIR, exist_ok=True)
     
     # Check if schedule period argument is provided
     if len(sys.argv) < 2:
-        print("Usage: upddatesked.py <schedule_period>")
+        print("Usage: updatesked <schedule_period>")
         print("Example: updatesked.py a25 or b25")
         print("Format: lowercase 'a' or 'b' followed by 2 digits")
         sys.exit(1)
@@ -162,13 +161,9 @@ def main():
         print("Examples: a25, b25, a24, b24")
         sys.exit(1)
     
-    # Change to schedule directory
-    original_dir = os.getcwd()
-    os.chdir(SCHED_DIR)
-    
     print()
     print(f"updating schedule {period}")
-    print(f"Working directory: {SCHED_DIR}")
+    print(f"Data directory: {SCHED_DIR}")
     print()
     
     # List of files to download and convert
@@ -204,28 +199,28 @@ def main():
             print(f"Error processing {source_file}: {e}")
     
     # Download and convert README
-    readme_source = "README.TXT"
-    readme_target = "README-current.TXT"
-    readme_url = f"{BASE_URL}/{readme_source}"
-    
+    readme_source_name = "README.TXT"
+    readme_source_path = os.path.join(SCHED_DIR, readme_source_name)
+    readme_target_path = os.path.join(SCHED_DIR, "README-current.TXT")
+    readme_url = f"{BASE_URL}/{readme_source_name}"
+
     try:
-        print(f"Downloading {readme_source}...")
-        urllib.request.urlretrieve(readme_url, readme_source)
-        
-        print(f"Converting {readme_source} to UTF-8...")
-        with open(readme_source, 'r', encoding='iso-8859-1') as f_in:
+        print(f"Downloading {readme_source_name}...")
+        urllib.request.urlretrieve(readme_url, readme_source_path)
+
+        print(f"Converting {readme_source_name} to UTF-8...")
+        with open(readme_source_path, 'r', encoding='iso-8859-1') as f_in:
             content = f_in.read()
-        with open(readme_target, 'w', encoding='utf-8') as f_out:
+        with open(readme_target_path, 'w', encoding='utf-8') as f_out:
             f_out.write(content)
-            
+
     except Exception as e:
-        print(f"Error processing {readme_source}: {e}")
+        print(f"Error processing {readme_source_name}: {e}")
 
     # Extract transmitter sites to JSON
-    readme_current = os.path.join(SCHED_DIR, readme_target)
     sites_json = os.path.join(SCHED_DIR, "transmitter-sites.json")
     try:
-        extract_transmitter_sites(readme_current, sites_json)
+        extract_transmitter_sites(readme_target_path, sites_json)
     except Exception as e:
         print(f"Error extracting transmitter sites: {e}")
 
@@ -243,8 +238,5 @@ def main():
         # Fallback if cowsay/lolcat not available
         print("\n✓ All done!")
     
-    # Return to original directory
-    os.chdir(original_dir)
-
 if __name__ == "__main__":
     main()
