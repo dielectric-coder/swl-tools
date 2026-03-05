@@ -2,3 +2,11 @@
 lat = 45.5017
 lon = -73.5673
 name = Montreal, QC
+
+# Add more QTH locations as [qth:label] sections
+# and cycle through them with the QTH field in the dashboard.
+#
+# [qth:cottage]
+# lat = 46.0
+# lon = -74.0
+# name = Cottage

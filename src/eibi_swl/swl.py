@@ -164,17 +164,33 @@ def compass_label(deg):
 
 
 def load_config():
-    """Load QTH config from swlconfig.conf."""
+    """Load QTH config from swlconfig.conf (first [qth*] section)."""
+    all_qth = load_all_qth()
+    return all_qth[0] if all_qth else {"lat": 0.0, "lon": 0.0, "name": "Unknown QTH"}
+
+
+def load_all_qth():
+    """Load all QTH entries from swlconfig.conf.
+
+    Supports [qth] and [qth:label] sections.
+    Returns list of dicts with lat, lon, name keys.
+    """
     config = configparser.ConfigParser()
     config.read(CONFIG_FILE)
-    try:
-        return {
-            "lat": float(config["qth"]["lat"]),
-            "lon": float(config["qth"]["lon"]),
-            "name": config["qth"]["name"],
-        }
-    except (KeyError, ValueError):
-        return {"lat": 0.0, "lon": 0.0, "name": "Unknown QTH"}
+    qth_list = []
+    for section in config.sections():
+        if section == "qth" or section.startswith("qth:"):
+            try:
+                qth_list.append({
+                    "lat": float(config[section]["lat"]),
+                    "lon": float(config[section]["lon"]),
+                    "name": config[section]["name"],
+                })
+            except (KeyError, ValueError):
+                continue
+    if not qth_list:
+        qth_list.append({"lat": 0.0, "lon": 0.0, "name": "Unknown QTH"})
+    return qth_list
 
 
 def load_sites():
@@ -344,6 +360,12 @@ Screen {
     margin-left: 1;
 }
 
+#qth-prompt {
+    width: 28;
+    height: 2;
+    margin-left: 1;
+}
+
 .prompt-char {
     width: 4;
     height: 1;
@@ -409,7 +431,9 @@ class SWLApp(App):
 
     def __init__(self):
         super().__init__()
-        self.qth = load_config()
+        self.qth_list = load_all_qth()
+        self.qth_index = 0
+        self.qth = self.qth_list[0]
         self.sites_index = load_sites()
         self.schedule = load_schedule()
         self.country_names = load_country_names()
@@ -435,6 +459,12 @@ class SWLApp(App):
         "[#090c0c on #a3aed2]  Update [/]"
         "[#a3aed2 on black]\ue0b0[/]"
     )
+    QTH_LABEL = (
+        "[#769ff0 on #394260]╭─[/]"
+        "[#a3aed2]░▒▓[/]"
+        "[#090c0c on #a3aed2] 󰍎 QTH [/]"
+        "[#a3aed2 on black]\ue0b0[/]"
+    )
 
     def compose(self):
         yield Static(id="title-bar")
@@ -454,6 +484,11 @@ class SWLApp(App):
                 with Horizontal():
                     yield Static("[#769ff0 on #394260]╰─\uf10c[/]", classes="prompt-char")
                     yield Input(placeholder="b25", id="period-input")
+            with Vertical(id="qth-prompt"):
+                yield Static(self.QTH_LABEL)
+                with Horizontal():
+                    yield Static("[#769ff0 on #394260]╰─\uf10c[/]", classes="prompt-char")
+                    yield Input(placeholder=self.qth["name"], id="qth-input")
         yield DataTable(id="schedule-table")
         yield RichLog(id="update-log", highlight=True, markup=True)
         yield Static(id="status-bar", markup=True)
@@ -516,6 +551,8 @@ class SWLApp(App):
             self._do_search()
         elif event.input.id == "period-input":
             self._run_update()
+        elif event.input.id == "qth-input":
+            self._select_qth()
 
     def _do_search(self):
         freq_input = self.query_one("#freq-input", Input)
@@ -603,6 +640,33 @@ class SWLApp(App):
         # Move focus to table so arrow keys navigate rows immediately
         if table.row_count > 0:
             table.focus()
+
+    def _select_qth(self):
+        """Select a QTH from the config. Empty input cycles to next; text filters by name."""
+        qth_input = self.query_one("#qth-input", Input)
+        query = qth_input.value.strip().lower()
+
+        if not query:
+            # Cycle to next QTH
+            self.qth_index = (self.qth_index + 1) % len(self.qth_list)
+        else:
+            # Find matching QTH by substring
+            for i, q in enumerate(self.qth_list):
+                if query in q["name"].lower():
+                    self.qth_index = i
+                    break
+            else:
+                self.bell()
+                return
+
+        self.qth = self.qth_list[self.qth_index]
+        qth_input.placeholder = self.qth["name"]
+        qth_input.value = ""
+        self._update_title()
+
+        # Re-run search if results are displayed to update distances/bearings
+        if self.displayed_rows:
+            self._do_search()
 
     def on_data_table_row_selected(self, event):
         try:
