@@ -1,4 +1,4 @@
-# SWL Tools User Guide
+# SWL Schedule Tool User Guide
 
 ## Getting Started
 

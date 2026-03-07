@@ -1,4 +1,4 @@
-# SWL Tools Developer Guide
+# SWL Schedule Tool Developer Guide
 
 ## Project Structure
 

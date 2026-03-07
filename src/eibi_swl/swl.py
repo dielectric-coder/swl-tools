@@ -423,7 +423,7 @@ Screen {
 
 
 class SWLApp(App):
-    TITLE = f"SWL Tool v{__version__}"
+    TITLE = f"SWL Schedule Tool v{__version__}"
     CSS = CSS
     theme = "tokyo-night"
     BINDINGS = [
@@ -509,7 +509,7 @@ class SWLApp(App):
     def on_mount(self):
         try:
             fd = os.open("/dev/tty", os.O_WRONLY)
-            os.write(fd, f"\033]0;SWL Tool v{__version__}\007".encode())
+            os.write(fd, f"\033]0;SWL Schedule Tool v{__version__}\007".encode())
             os.close(fd)
         except OSError:
             pass
@@ -535,7 +535,7 @@ class SWLApp(App):
     def _update_title(self):
         bar = self.query_one("#title-bar", Static)
         bar.update(
-            f"  SWL Tool v{__version__}     ⏰ {self.utc_display}    📍 {self.qth['name']}"
+            f"  SWL Schedule Tool v{__version__}     ⏰ {self.utc_display}    📍 {self.qth['name']}"
         )
 
     def _update_status(self):

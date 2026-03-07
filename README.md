@@ -1,4 +1,4 @@
-# SWL Tools
+# SWL Schedule Tool
 
 A collection of tools for shortwave listeners (SWL) to check broadcast schedules and find active stations.
 

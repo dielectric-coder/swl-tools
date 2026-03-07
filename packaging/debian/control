@@ -16,7 +16,7 @@ Architecture: all
 Depends: ${python3:Depends}, ${misc:Depends}
 Recommends: python3-rich, python3-textual
 Description: Interactive TUI dashboard for shortwave listeners
- SWL Tools provides an interactive terminal dashboard and CLI tools
+ SWL Schedule Tool provides an interactive terminal dashboard and CLI tools
  for querying the EiBi shortwave broadcast schedule database. Features
  include real-time ON AIR detection, bearing and distance from your
  QTH, station detail modals, and integrated schedule updates.

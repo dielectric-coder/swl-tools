@@ -1,5 +1,5 @@
 [Desktop Entry]
-Name=SWL Dashboard
+Name=SWL Schedule Tool
 Comment=Shortwave listener broadcast schedule dashboard
 Exec=swl
 Terminal=true
