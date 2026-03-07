@@ -4,7 +4,7 @@ pkgver=1.0.0
 pkgrel=1
 pkgdesc="Interactive TUI dashboard and CLI tools for shortwave listeners using the EiBi broadcast schedule"
 arch=('any')
-url="https://github.com/mikewam/swl-tools"
+url="https://github.com/mikewam/SWLScheduleTool"
 license=('GPL3')
 depends=('python' 'python-rich' 'python-textual')
 makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
@@ -12,12 +12,12 @@ source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
 sha256sums=('SKIP')
 
 build() {
-    cd "swl-tools-$pkgver"
+    cd "SWLScheduleTool-$pkgver"
     python -m build --wheel --no-isolation
 }
 
 package() {
-    cd "swl-tools-$pkgver"
+    cd "SWLScheduleTool-$pkgver"
     python -m installer --destdir="$pkgdir" dist/*.whl
     install -Dm644 packaging/swl.desktop "$pkgdir/usr/share/applications/swl.desktop"
 }

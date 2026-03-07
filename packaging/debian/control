@@ -8,7 +8,7 @@ Build-Depends: debhelper-compat (= 13),
                python3-setuptools,
                pybuild-plugin-pyproject
 Standards-Version: 4.6.2
-Homepage: https://github.com/mikewam/swl-tools
+Homepage: https://github.com/mikewam/SWLScheduleTool
 Rules-Requires-Root: no
 
 Package: eibi-swl-dashboard

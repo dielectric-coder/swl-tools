@@ -3,7 +3,7 @@
 ## Project Structure
 
 ```
-swl-tools/
+SWLScheduleTool/
 ├── swl.py                  # Interactive TUI dashboard (Textual)
 ├── checksked.py            # CLI frequency query tool (Rich)
 ├── updatesked.py           # Schedule downloader & converter

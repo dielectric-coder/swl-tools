@@ -27,8 +27,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/mikewam/swl-tools"
-Issues = "https://github.com/mikewam/swl-tools/issues"
+Homepage = "https://github.com/mikewam/SWLScheduleTool"
+Issues = "https://github.com/mikewam/SWLScheduleTool/issues"
 
 [project.scripts]
 swl = "eibi_swl.swl:main"

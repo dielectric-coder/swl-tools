@@ -62,8 +62,8 @@ This installs three commands: `swl`, `checksked`, and `updatesked`.
 ### From source (development)
 
 ```bash
-git clone https://github.com/mikewam/swl-tools.git
-cd swl-tools
+git clone https://github.com/mikewam/SWLScheduleTool.git
+cd SWLScheduleTool
 pip install -e .
 ```
 
