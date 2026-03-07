@@ -849,6 +849,15 @@ class SWLApp(App):
                 sock.sendall(cmd.encode("ascii"))
         except OSError:
             self.bell()
+            return
+
+        # If azMap is already running, update the map target
+        try:
+            fd = os.open(self.FIFO_PATH, os.O_WRONLY | os.O_NONBLOCK)
+            os.close(fd)
+        except OSError:
+            return  # azMap not running, just tune
+        self.action_show_map()
 
     @work(thread=True)
     def _run_update(self):

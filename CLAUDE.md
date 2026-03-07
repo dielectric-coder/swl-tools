@@ -141,7 +141,8 @@ cp packaging/swl.desktop ~/.local/share/applications/
 - NEXT indicator in light grey showing time until broadcast starts for inactive stations
 - Station detail modal (Enter on row) with round blue border
 - DataTable with sortable columns, zebra stripes, row cursor
-- Key bindings: Enter to search/update, F5 to update schedules, m to show azMap, q/Escape to quit
+- Key bindings: Enter to search/update, F5 to update schedules, t to tune radio, m to show azMap, q/Escape to quit
+- **Radio tuning** (`t` key): sends a CAT command to tune the radio to the selected row's frequency. If azMap is already running (FIFO at `/tmp/azmap-target.fifo` has an active reader), also updates the map target automatically. If azMap is not running, only tunes without launching a new map instance.
 - **azMap IPC** (`m` key): sends target coordinates and station details to a running azMap instance via a named pipe (FIFO) at `/tmp/azmap-target.fifo`. If no azMap is running (FIFO open fails with ENXIO), launches a new instance via `subprocess.Popen` passing 4 positional args: QTH lat/lon as center, transmitter site lat/lon as target, plus `-c` (QTH name), `-t` (station name), and `-d` (station detail string) flags. The `-d` flag passes `station|freq|country|site|lang|target` so azMap has full station info on first launch. FIFO wire format: `lat,lon,name|station|freq kHz|country|site|lang|target\n`. Subsequent `m` presses send updates via FIFO to the running instance.
 
 **src/eibi_swl/checksked.py** - Query tool for checking active broadcasts
