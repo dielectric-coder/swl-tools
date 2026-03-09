@@ -4,6 +4,8 @@ import sys
 import os
 import subprocess
 import urllib.request
+import urllib.error
+import ssl
 import re
 import json
 
@@ -165,39 +167,51 @@ def main():
     print(f"updating schedule {period}")
     print(f"Data directory: {SCHED_DIR}")
     print()
-    
+
+    # Create SSL context (eibispace.de may have certificate issues)
+    ssl_ctx = ssl.create_default_context()
+    try:
+        urllib.request.urlopen(f"{BASE_URL}/", context=ssl_ctx, timeout=5)
+    except (ssl.SSLError, urllib.error.URLError):
+        ssl_ctx = ssl._create_unverified_context()
+        print("Note: Using unverified SSL (server certificate issue)")
+    except Exception:
+        pass
+
     # List of files to download and convert
     files_to_process = [
         (f"sked-{period}.csv", "sked-current.csv"),
         (f"freq-{period}.txt", "freq-current.dat"),
         (f"bc-{period}.txt", "bc-current.dat"),
     ]
-    
+
     # Download and convert each file
     for source_file, target_file in files_to_process:
         source_path = os.path.join(SCHED_DIR, source_file)
         target_path = os.path.join(SCHED_DIR, target_file)
         url = f"{BASE_URL}/{source_file}"
-        
+
         # Remove old file if exists
         if os.path.exists(source_path):
             os.remove(source_path)
-        
+
         # Download file
         try:
             print(f"Downloading {source_file}...")
-            urllib.request.urlretrieve(url, source_path)
-            
+            with urllib.request.urlopen(url, context=ssl_ctx) as resp:
+                with open(source_path, 'wb') as f:
+                    f.write(resp.read())
+
             # Convert encoding from ISO-8859-1 to UTF-8
             print(f"Converting {source_file} to UTF-8...")
             with open(source_path, 'r', encoding='iso-8859-1') as f_in:
                 content = f_in.read()
             with open(target_path, 'w', encoding='utf-8') as f_out:
                 f_out.write(content)
-                
+
         except Exception as e:
             print(f"Error processing {source_file}: {e}")
-    
+
     # Download and convert README
     readme_source_name = "README.TXT"
     readme_source_path = os.path.join(SCHED_DIR, readme_source_name)
@@ -206,7 +220,9 @@ def main():
 
     try:
         print(f"Downloading {readme_source_name}...")
-        urllib.request.urlretrieve(readme_url, readme_source_path)
+        with urllib.request.urlopen(readme_url, context=ssl_ctx) as resp:
+            with open(readme_source_path, 'wb') as f:
+                f.write(resp.read())
 
         print(f"Converting {readme_source_name} to UTF-8...")
         with open(readme_source_path, 'r', encoding='iso-8859-1') as f_in:

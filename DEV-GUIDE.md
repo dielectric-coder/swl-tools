@@ -72,13 +72,15 @@ Standalone Rich-based CLI tool. Reads the same `sked-current.csv` and displays a
 
 ### updatesked.py — Schedule Updater
 
-Downloads EiBi schedule files from `http://eibispace.de/dx`:
+Downloads EiBi schedule files from `https://eibispace.de/dx`:
 - `sked-{period}.csv` → `sked-current.csv`
 - `freq-{period}.txt` → `freq-current.dat`
 - `bc-{period}.txt` → `bc-current.dat`
 - `README.TXT` → `README-current.TXT`
 
 Converts all files from ISO-8859-1 to UTF-8. Extracts transmitter sites from README Section IV into `transmitter-sites.json`.
+
+**SSL Handling:** Probes the server with a verified SSL context first. If the server has certificate issues (expired/misconfigured), automatically falls back to an unverified SSL context and prints a note.
 
 **Site Extraction:**
 - `parse_dms_coord()` — Converts DMS coordinates (e.g. `34N32`, `26S07'40"`) to decimal degrees
@@ -129,7 +131,7 @@ Target codes can be:
 
 ## Dependencies
 
-**Standard library:** `argparse`, `os`, `sys`, `csv`, `json`, `re`, `configparser`, `socket`, `subprocess`, `math`, `datetime`, `urllib.request`, `shutil`
+**Standard library:** `argparse`, `os`, `sys`, `csv`, `json`, `re`, `configparser`, `socket`, `subprocess`, `math`, `datetime`, `urllib.request`, `urllib.error`, `ssl`, `shutil`
 
 **External packages:**
 - `rich` — Terminal formatting (checksked.py, swl.py)

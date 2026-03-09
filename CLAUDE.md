@@ -155,7 +155,7 @@ cp packaging/swl.desktop ~/.local/share/applications/
 - Uses UTF-8 encoding to read CSV files (converted from ISO-8859-1 by updatesked)
 
 **src/eibi_swl/updatesked.py** - Schedule update tool
-- Downloads schedule files from `http://eibispace.de/dx`
+- Downloads schedule files from `https://eibispace.de/dx` with SSL fallback (auto-detects certificate issues)
 - Processes three file types:
   - `sked-{period}.csv` → `sked-current.csv` (main schedule)
   - `freq-{period}.txt` → `freq-current.dat` (frequency-sorted)
