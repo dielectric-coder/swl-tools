@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import sys
 import os
 import subprocess
@@ -10,6 +11,8 @@ import re
 import json
 
 from eibi_swl._paths import resolve_data_dir
+
+MAX_DOWNLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 
 def parse_dms_coord(coord_str):
     """Parse a single coordinate component like '34N32' or '26S07\\'40\"' to decimal degrees."""
@@ -140,29 +143,27 @@ def _parse_multi_site(sites, country, site_code, rest, coord_matches):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Download EiBi schedule data")
+    parser.add_argument("period", help="Schedule period (e.g. a25, b25)")
+    parser.add_argument("--insecure", action="store_true",
+                        help="Allow unverified SSL if certificate check fails")
+    args = parser.parse_args()
+
     # Configuration
     SCHED_DIR = resolve_data_dir()
     BASE_URL = "https://eibispace.de/dx"
-    
+
     # Create schedule directory if it doesn't exist
     os.makedirs(SCHED_DIR, exist_ok=True)
-    
-    # Check if schedule period argument is provided
-    if len(sys.argv) < 2:
-        print("Usage: updatesked <schedule_period>")
-        print("Example: updatesked.py a25 or b25")
-        print("Format: lowercase 'a' or 'b' followed by 2 digits")
-        sys.exit(1)
-    
-    period = sys.argv[1]
-    
-    # Validate period format: must be 'a' or 'b' followed by exactly 2 digits
+
+    period = args.period
+
     if not re.match(r'^[ab]\d{2}$', period):
         print("Error: Invalid schedule period format!")
         print("Period must be lowercase 'a' or 'b' followed by 2 digits")
         print("Examples: a25, b25, a24, b24")
         sys.exit(1)
-    
+
     print()
     print(f"updating schedule {period}")
     print(f"Data directory: {SCHED_DIR}")
@@ -173,9 +174,14 @@ def main():
     try:
         urllib.request.urlopen(f"{BASE_URL}/", context=ssl_ctx, timeout=5)
     except (ssl.SSLError, urllib.error.URLError):
-        ssl_ctx = ssl._create_unverified_context()
-        print("Note: Using unverified SSL (server certificate issue)")
-    except Exception:
+        if args.insecure:
+            ssl_ctx = ssl._create_unverified_context()
+            print("Warning: Using unverified SSL (--insecure flag set)")
+        else:
+            print("Error: SSL certificate verification failed for eibispace.de")
+            print("If you trust this connection, re-run with --insecure")
+            sys.exit(1)
+    except OSError:
         pass
 
     # List of files to download and convert
@@ -200,7 +206,7 @@ def main():
             print(f"Downloading {source_file}...")
             with urllib.request.urlopen(url, context=ssl_ctx) as resp:
                 with open(source_path, 'wb') as f:
-                    f.write(resp.read())
+                    f.write(resp.read(MAX_DOWNLOAD_BYTES))
 
             # Convert encoding from ISO-8859-1 to UTF-8
             print(f"Converting {source_file} to UTF-8...")
@@ -209,7 +215,7 @@ def main():
             with open(target_path, 'w', encoding='utf-8') as f_out:
                 f_out.write(content)
 
-        except Exception as e:
+        except (urllib.error.URLError, OSError) as e:
             print(f"Error processing {source_file}: {e}")
 
     # Download and convert README
@@ -230,14 +236,14 @@ def main():
         with open(readme_target_path, 'w', encoding='utf-8') as f_out:
             f_out.write(content)
 
-    except Exception as e:
+    except (urllib.error.URLError, OSError) as e:
         print(f"Error processing {readme_source_name}: {e}")
 
     # Extract transmitter sites to JSON
     sites_json = os.path.join(SCHED_DIR, "transmitter-sites.json")
     try:
         extract_transmitter_sites(readme_target_path, sites_json)
-    except Exception as e:
+    except (OSError, ValueError, KeyError) as e:
         print(f"Error extracting transmitter sites: {e}")
 
     # Display completion message

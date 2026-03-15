@@ -25,7 +25,7 @@ Displays all broadcasts on the specified frequency, highlighting currently activ
 
 ### Update Schedule Data
 ```bash
-updatesked <schedule_period>
+updatesked <schedule_period> [--insecure]
 ```
 Example: `updatesked b25` or `updatesked a25`
 
@@ -155,7 +155,8 @@ cp packaging/swl-sched.desktop ~/.local/share/applications/
 - Uses UTF-8 encoding to read CSV files (converted from ISO-8859-1 by updatesked)
 
 **src/eibi_swl/updatesked.py** - Schedule update tool
-- Downloads schedule files from `https://eibispace.de/dx` with SSL fallback (auto-detects certificate issues)
+- Downloads schedule files from `https://eibispace.de/dx` with verified SSL (requires `--insecure` flag to bypass on cert failure)
+- Downloads capped at 10 MB per file
 - Processes three file types:
   - `sked-{period}.csv` → `sked-current.csv` (main schedule)
   - `freq-{period}.txt` → `freq-current.dat` (frequency-sorted)
@@ -207,7 +208,7 @@ The `sked-current.csv` file uses semicolon delimiters with these columns:
 Both scripts work exclusively in UTC:
 - `checksked.py` uses `datetime.now(timezone.utc)` for current time
 - Time format: HHMM (24-hour format as integer)
-- Midnight-crossing broadcasts: When end_time < start_time, duration calculation adds 2400
+- Midnight-crossing broadcasts: HHMM values are converted to total minutes before subtracting
 - Active broadcast detection handles both normal and midnight-crossing cases
 
 ### Display Formatting

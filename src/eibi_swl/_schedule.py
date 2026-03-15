@@ -13,16 +13,18 @@ def compute_on_air(time_range, current_time):
     except (ValueError, IndexError):
         return "—", False, "—", 9999
 
-    duration = end_time - start_time
+    s_h, s_m = start_time // 100, start_time % 100
+    e_h, e_m = end_time // 100, end_time % 100
+    dur_minutes = (e_h * 60 + e_m) - (s_h * 60 + s_m)
     is_active = False
 
-    if duration < 0:
-        duration += 2400
+    if dur_minutes < 0:
+        dur_minutes += 24 * 60
         is_active = (current_time >= start_time) or (current_time < end_time)
     else:
         is_active = start_time <= current_time < end_time
 
-    dur_str = f"{duration:04d}"
+    dur_str = f"{dur_minutes // 60:02d}{dur_minutes % 60:02d}"
     cur_h, cur_m = current_time // 100, current_time % 100
     cur_total = cur_h * 60 + cur_m
 

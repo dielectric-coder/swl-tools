@@ -26,13 +26,34 @@ from textual import work
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-SCHED_DIR = resolve_data_dir()
-CONFIG_FILE = resolve_config()
-SITES_JSON = os.path.join(SCHED_DIR, "transmitter-sites.json")
-SKED_CSV = os.path.join(SCHED_DIR, "sked-current.csv")
+
+# Lazy-initialised paths (resolved on first access, not at import time)
+_SCHED_DIR = None
+_CONFIG_FILE = None
+
+def _get_sched_dir():
+    global _SCHED_DIR
+    if _SCHED_DIR is None:
+        _SCHED_DIR = resolve_data_dir()
+    return _SCHED_DIR
+
+def _get_config_file():
+    global _CONFIG_FILE
+    if _CONFIG_FILE is None:
+        _CONFIG_FILE = resolve_config()
+    return _CONFIG_FILE
+
+def _get_sites_json():
+    return os.path.join(_get_sched_dir(), "transmitter-sites.json")
+
+def _get_sked_csv():
+    return os.path.join(_get_sched_dir(), "sked-current.csv")
+
+def _get_readme_file():
+    return os.path.join(_get_sched_dir(), "README-current.TXT")
+
 COUNTRY_FILE = os.path.join(SCRIPT_DIR, "countrycode.dat")
 TARGET_FILE = os.path.join(SCRIPT_DIR, "targetcode")
-README_FILE = os.path.join(SCHED_DIR, "README-current.TXT")
 
 
 def load_country_names():
@@ -108,7 +129,7 @@ def load_language_names():
     """Parse README Section I language codes → {code: name}."""
     names = {}
     try:
-        with open(README_FILE, "r", encoding="utf-8") as f:
+        with open(_get_readme_file(), "r", encoding="utf-8") as f:
             lines = f.readlines()
     except FileNotFoundError:
         return names
@@ -178,7 +199,7 @@ def load_all_qth():
     Returns list of dicts with lat, lon, name keys.
     """
     config = configparser.ConfigParser()
-    config.read(CONFIG_FILE)
+    config.read(_get_config_file())
     qth_list = []
     for section in config.sections():
         if section == "qth" or section.startswith("qth:"):
@@ -199,7 +220,7 @@ def load_sites():
     """Load transmitter sites JSON into a dict keyed by (country, site_code)."""
     sites = {}
     try:
-        with open(SITES_JSON, "r", encoding="utf-8") as f:
+        with open(_get_sites_json(), "r", encoding="utf-8") as f:
             data = json.load(f)
         for entry in data:
             key = (entry["country"], entry["site_code"])
@@ -213,7 +234,7 @@ def load_schedule():
     """Load the schedule CSV into a list of row dicts."""
     rows = []
     try:
-        with open(SKED_CSV, "r", encoding="utf-8") as f:
+        with open(_get_sked_csv(), "r", encoding="utf-8") as f:
             reader = csv.reader(f, delimiter=";")
             next(reader, None)  # skip header
             for row in reader:
@@ -670,7 +691,7 @@ class SWLApp(App):
 
     def check_action(self, action, parameters):
         """Prevent quit/search bindings from firing while typing in the input."""
-        if isinstance(self.focused, Input) and action not in ("quit", "unfocus"):
+        if isinstance(self.focused, Input) and action not in ("unfocus",):
             return None
         return True
 
@@ -1079,6 +1100,36 @@ class SWLApp(App):
         except FileNotFoundError:
             self.bell()
 
+    def _send_map_update_if_running(self):
+        """Send current selection to azMap if FIFO has a reader, without launching a new instance."""
+        table = self.query_one(DataTable)
+        if not table.row_count or table.cursor_row is None:
+            return
+        try:
+            row_key = table.coordinate_to_cell_key(
+                (table.cursor_row, 0)).row_key
+            idx = int(str(row_key.value))
+        except (ValueError, TypeError):
+            return
+        if idx < 0 or idx >= len(self.displayed_rows):
+            return
+        rd = self.displayed_rows[idx]
+        si = rd.get("site_info")
+        if not si or si.get("lat") is None or si.get("lon") is None:
+            return
+        target_name = f"{rd['station']} ({rd['freq']} kHz)"
+        site_name = si.get("name", "") if si else ""
+        detail = f"{rd['station']}|{rd['freq']} kHz|{rd['itu']}|{site_name}|{rd['lng']}|{rd['target']}"
+        fifo_line = f"{si['lat']},{si['lon']},{target_name}|{detail}\n"
+        try:
+            fd = os.open(self.FIFO_PATH, os.O_WRONLY | os.O_NONBLOCK)
+            try:
+                os.write(fd, fifo_line.encode("utf-8"))
+            finally:
+                os.close(fd)
+        except OSError:
+            pass  # azMap not running — ignore
+
     def action_tune_radio(self):
         """Send FA command to EladSpectrum CAT server to tune the radio."""
         table = self.query_one(DataTable)
@@ -1120,13 +1171,8 @@ class SWLApp(App):
         except OSError:
             pass  # Demod tool not running — ignore
 
-        # If azMap is already running, update the map target
-        try:
-            fd = os.open(self.FIFO_PATH, os.O_WRONLY | os.O_NONBLOCK)
-            os.close(fd)
-        except OSError:
-            return  # azMap not running, just tune
-        self.action_show_map()
+        # If azMap is already running, update the map target too
+        self._send_map_update_if_running()
 
     @work(thread=True)
     def _run_update(self):
@@ -1227,28 +1273,34 @@ class SWLApp(App):
             ])
 
 
-def _save_listener_config(listener, log_file):
-    """Save listener name and log file to config file, preserving other sections."""
+def _sanitize_config_value(value):
+    """Sanitize a value for safe inclusion in an INI config file."""
+    return str(value).replace("\n", "").replace("\r", "").replace("[", "").replace("]", "")
+
+
+def _save_config_section(section_name, key_values):
+    """Save a config section to the config file, preserving other sections.
+
+    key_values is a list of (key, value) tuples.
+    """
     lines = []
-    if os.path.isfile(CONFIG_FILE):
-        with open(CONFIG_FILE) as f:
+    if os.path.isfile(_get_config_file()):
+        with open(_get_config_file()) as f:
             lines = f.readlines()
 
     section_idx = None
     next_section_idx = None
     for i, line in enumerate(lines):
         stripped = line.strip()
-        if stripped == "[logging]":
+        if stripped == f"[{section_name}]":
             section_idx = i
         elif section_idx is not None and stripped.startswith("[") and stripped.endswith("]"):
             next_section_idx = i
             break
 
-    section_lines = [
-        "[logging]\n",
-        f"listener = {listener}\n",
-        f"log_file = {log_file}\n",
-    ]
+    section_lines = [f"[{section_name}]\n"]
+    for key, value in key_values:
+        section_lines.append(f"{key} = {_sanitize_config_value(value)}\n")
 
     if section_idx is not None:
         end = next_section_idx if next_section_idx is not None else len(lines)
@@ -1259,47 +1311,18 @@ def _save_listener_config(listener, log_file):
         lines.append("\n")
         lines.extend(section_lines)
 
-    with open(CONFIG_FILE, "w") as f:
+    with open(_get_config_file(), "w") as f:
         f.writelines(lines)
+
+
+def _save_listener_config(listener, log_file):
+    """Save listener name and log file to config file, preserving other sections."""
+    _save_config_section("logging", [("listener", listener), ("log_file", log_file)])
 
 
 def _save_radio_config(host, port):
     """Save radio host/port to config file, preserving comments."""
-    lines = []
-    if os.path.isfile(CONFIG_FILE):
-        with open(CONFIG_FILE) as f:
-            lines = f.readlines()
-
-    # Check if [radio] section already exists
-    radio_idx = None
-    next_section_idx = None
-    for i, line in enumerate(lines):
-        stripped = line.strip()
-        if stripped == "[radio]":
-            radio_idx = i
-        elif radio_idx is not None and stripped.startswith("[") and stripped.endswith("]"):
-            next_section_idx = i
-            break
-
-    radio_lines = [
-        "[radio]\n",
-        f"host = {host}\n",
-        f"port = {port}\n",
-    ]
-
-    if radio_idx is not None:
-        # Replace existing [radio] section
-        end = next_section_idx if next_section_idx is not None else len(lines)
-        lines[radio_idx:end] = radio_lines + ["\n"]
-    else:
-        # Append new section
-        if lines and not lines[-1].endswith("\n"):
-            lines.append("\n")
-        lines.append("\n")
-        lines.extend(radio_lines)
-
-    with open(CONFIG_FILE, "w") as f:
-        f.writelines(lines)
+    _save_config_section("radio", [("host", host), ("port", port)])
 
 
 def main():
@@ -1310,7 +1333,7 @@ def main():
     args = parser.parse_args()
 
     config = configparser.ConfigParser()
-    config.read(CONFIG_FILE)
+    config.read(_get_config_file())
     host = args.host or config.get("radio", "host", fallback="localhost")
     port = args.cat_port or config.getint("radio", "port", fallback=4532)
 
